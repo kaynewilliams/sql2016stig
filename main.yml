@@ -1,0 +1,92 @@
+---
+- name: SQL Server Configuration Playbook
+  hosts: win
+  gather_facts: false
+  tasks:
+    - name: Configure SQL Server session auditing
+      win_shell: |
+        ALTER SERVER AUDIT [STIG_Audit] WITH STATE = ON;
+      args:
+        executable: powershell.exe
+      ignore_errors: true
+
+    - name: Configure SQL Server audit for privilege/permission retrieval
+      win_shell: |
+        ALTER SERVER AUDIT STIG_AUDIT_SERVER_SPECIFICATION WITH (STATE = OFF);
+        ALTER SERVER AUDIT STIG_AUDIT_SERVER_SPECIFICATION ADD (SCHEMA_OBJECT_ACCESS_GROUP);
+        ALTER SERVER AUDIT STIG_AUDIT_SERVER_SPECIFICATION WITH (STATE = ON);
+      args:
+        executable: powershell.exe
+      ignore_errors: true
+
+    - name: Configure SQL Server audit for modifying security objects
+      win_shell: |
+        ALTER SERVER AUDIT STIG_AUDIT_SERVER_SPECIFICATION WITH (STATE = OFF);
+        ALTER SERVER AUDIT STIG_AUDIT_SERVER_SPECIFICATION ADD (SCHEMA_OBJECT_CHANGE_GROUP);
+        ALTER SERVER AUDIT STIG_AUDIT_SERVER_SPECIFICATION WITH (STATE = ON);
+      args:
+        executable: powershell.exe
+      ignore_errors: true
+
+    - name: Configure SQL Server audit for deleting privileges/permissions
+      win_shell: |
+        ALTER SERVER AUDIT STIG_AUDIT_SERVER_SPECIFICATION WITH (STATE = OFF);
+        ALTER SERVER AUDIT STIG_AUDIT_SERVER_SPECIFICATION ADD (
+          DATABASE_OBJECT_OWNERSHIP_CHANGE_GROUP,
+          DATABASE_OBJECT_PERMISSION_CHANGE_GROUP,
+          DATABASE_OWNERSHIP_CHANGE_GROUP,
+          DATABASE_PERMISSION_CHANGE_GROUP,
+          DATABASE_ROLE_MEMBER_CHANGE_GROUP,
+          SCHEMA_OBJECT_OWNERSHIP_CHANGE_GROUP,
+          SCHEMA_OBJECT_PERMISSION_CHANGE_GROUP,
+          SERVER_OBJECT_OWNERSHIP_CHANGE_GROUP,
+          SERVER_OBJECT_PERMISSION_CHANGE_GROUP,
+          SERVER_PERMISSION_CHANGE_GROUP,
+          SERVER_ROLE_MEMBER_CHANGE_GROUP
+        );
+        ALTER SERVER AUDIT STIG_AUDIT_SERVER_SPECIFICATION WITH (STATE = ON);
+      args:
+        executable: powershell.exe
+      ignore_errors: true
+
+    - name: Configure SQL Server audit for deleting security objects
+      win_shell: |
+        ALTER SERVER AUDIT STIG_AUDIT_SERVER_SPECIFICATION WITH (STATE = OFF);
+        ALTER SERVER AUDIT STIG_AUDIT_SERVER_SPECIFICATION ADD (SCHEMA_OBJECT_CHANGE_GROUP);
+        ALTER SERVER AUDIT STIG_AUDIT_SERVER_SPECIFICATION WITH (STATE = ON);
+      args:
+        executable: powershell.exe
+      ignore_errors: true
+
+    - name: Configure SQL Server audit for accessing categorized information
+      win_shell: |
+        ALTER SERVER AUDIT STIG_AUDIT_SERVER_SPECIFICATION WITH (STATE = OFF);
+        ALTER SERVER AUDIT STIG_AUDIT_SERVER_SPECIFICATION ADD (SCHEMA_OBJECT_ACCESS_GROUP);
+        ALTER SERVER AUDIT STIG_AUDIT_SERVER_SPECIFICATION WITH (STATE = ON);
+      args:
+        executable: powershell.exe
+      ignore_errors: true
+
+    - name: Configure SQL Server to initiate session auditing upon startup
+      win_shell: |
+        ALTER SERVER AUDIT [STIG_Audit] WITH STATE = ON;
+      args:
+        executable: powershell.exe
+      ignore_errors: true
+
+    - name: Configure SQL Server to overwrite audit log records, oldest first
+      win_shell: |
+        ALTER SERVER AUDIT [STIG_Audit] WITH (STATE = OFF);
+        ALTER SERVER AUDIT [STIG_Audit] TO FILE (max_rollover_files = 10);
+        ALTER SERVER AUDIT [STIG_Audit] WITH (STATE = ON);
+      args:
+        executable: powershell.exe
+      ignore_errors: true
+
+    - name: Configure SQL Server to limit the number of concurrent sessions per user
+      win_shell: |
+        ALTER SERVER AUDIT [STIG_Audit] WITH (STATE = OFF);
+        ALTER SERVER AUDIT [STIG_Audit] WITH STATE = ON;
+      args:
+        executable: powershell.exe
+      ignore_errors: true
