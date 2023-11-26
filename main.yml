@@ -12,34 +12,3 @@
         state: present
       become: yes
 
-    - name: Transmit only encrypted representations of passwords
-      lowlydba.sqlserver.config:
-        instance_name: "{{ instance_name }}"
-        option_name: "remote password encryption"
-        option_value: 1
-        state: present
-      become: yes
-
-    - name: Limit the number of concurrent sessions
-      lowlydba.sqlserver.config:
-        instance_name: "{{ instance_name }}"
-        option_name: "user connections"
-        option_value: 10
-        state: present
-      become: yes
-
-    - name: Configure Customer Feedback and Error Reporting
-      lowlydba.sqlserver.config:
-        instance_name: "{{ instance_name }}"
-        option_name: "customer experience improvement program"
-        option_value: 1
-        state: present
-      become: yes
-
-    - name: Initiate session auditing upon startup
-      lowlydba.sqlserver.config:
-        instance_name: "{{ instance_name }}"
-        option_name: "audit level"
-        option_value: 3
-        state: present
-      become: yes
