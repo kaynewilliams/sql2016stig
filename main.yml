@@ -3,7 +3,7 @@
   hosts: win
   gather_facts: no
   vars:
-    sql_instance: "WIN-8FEC7TK3JN0\SQLEXPRESS"
+    sql_instance: "WIN-8FEC7TK3JN0\\SQLEXPRESS"
     connection_string: "Data Source={{ sql_instance }};Initial Catalog=master;Integrated Security=SSPI;TrustServerCertificate=true"
 
   tasks:
@@ -11,4 +11,6 @@
       lowlydba.sqlserver.instance_info:
         sql_instance: "{{ sql_instance }}"
         connection_string: "{{ connection_string }}"
+        sql_username: ""
+        sql_password: ""
 
