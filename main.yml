@@ -1,10 +1,11 @@
-- name: Configure SQL Server using lowlydba.sqlserver collection
+- name: Get basic info for an instance
   hosts: win
   gather_facts: no
   vars:
-    instance_name: "WIN-8FEC7TK3JN0\\SQLEXPRESS"
+    sql_instance: "WIN-8FEC7TK3JN0\\SQLEXPRESS"
   tasks:
-      - name: Get basic info for an instance
-  lowlydba.sqlserver.instance_info:
-    sql_instance: "{{ instance_name }}"
-
+    - name: Get instance info
+      lowlydba.sqlserver.instance_info:
+        sql_instance: "{{ sql_instance }}"
+      become: yes
+      become_method: runas
