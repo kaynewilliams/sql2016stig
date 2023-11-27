@@ -7,5 +7,3 @@
     - name: Get instance info
       lowlydba.sqlserver.instance_info:
         sql_instance: "{{ sql_instance }}"
-      become: yes
-      become_method: runas
