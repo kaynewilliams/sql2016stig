@@ -10,5 +10,5 @@
         login: "NT AUTHORITY\\SYSTEM"
         sysadmin: no
         state: present
-      become: yes
+      become: runas
 
