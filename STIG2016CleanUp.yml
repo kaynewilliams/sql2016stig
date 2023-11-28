@@ -11,9 +11,16 @@
     sql_instance_id: "MSSQLSERVER" # Specify the SQL Server instance name here
 
   tasks:
+
+    - name: Install NuGet provider
+      win_shell: |
+        Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
+      become: yes
+      become_user: WinLabAAP
+
     - name: Install pymssql Python module
       win_shell: |
-        Install-Module -Name pymssql -Force -Scope Global
+        Install-Module -Name pymssql -Force
       become: yes
       become_user: WinLabAAP
       environment:
@@ -42,59 +49,54 @@
           END;
         "@
         Invoke-Sqlcmd -Query $triggerCode -ServerInstance 'localhost' -Database 'master'
-      become: yes
-      become_user: WinLabAAP
       environment:
         PYTHONIOENCODING: UTF-8
+      ignore_errors: true
 
     - name: Check CEIP Participation
-      win_regedit:
-        path: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\{{ sql_instance_id }}\\CPE"
-        name: "CustomerFeedback"
+      win_shell: |
+        $CEIPPath = "HKLM:\Software\Microsoft\Microsoft SQL Server\{{ sql_instance_id }}\CPE"
+        Get-ItemProperty -Path $CEIPPath -Name "CustomerFeedback" | Select-Object -ExpandProperty "CustomerFeedback"
       register: customer_feedback
 
     - name: Check Enable Error Reporting
-      win_regedit:
-        path: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\{{ sql_instance_id }}\\CPE"
-        name: "EnableErrorReporting"
+      win_shell: |
+        $CPEPath = "HKLM:\Software\Microsoft\Microsoft SQL Server\{{ sql_instance_id }}\CPE"
+        Get-ItemProperty -Path $CPEPath -Name "EnableErrorReporting" | Select-Object -ExpandProperty "EnableErrorReporting"
       register: enable_error_reporting
 
     - name: Check CEIP Participation (Version 130)
-      win_regedit:
-        path: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\130"
-        name: "CustomerFeedback"
+      win_shell: |
+        $CEIPPath_130 = "HKLM:\Software\Microsoft\Microsoft SQL Server\130"
+        Get-ItemProperty -Path $CEIPPath_130 -Name "CustomerFeedback" | Select-Object -ExpandProperty "CustomerFeedback"
       register: customer_feedback_130
 
     - name: Check Enable Error Reporting (Version 130)
-      win_regedit:
-        path: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\130"
-        name: "EnableErrorReporting"
+      win_shell: |
+        $CPEPath_130 = "HKLM:\Software\Microsoft\Microsoft SQL Server\130"
+        Get-ItemProperty -Path $CPEPath_130 -Name "EnableErrorReporting" | Select-Object -ExpandProperty "EnableErrorReporting"
       register: enable_error_reporting_130
 
     - name: Ensure CEIP is Disabled
-      win_regedit:
-        path: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\{{ sql_instance_id }}\\CPE"
-        name: "CustomerFeedback"
-        data: "0"
-      when: customer_feedback.rc == 0 and customer_feedback.changed
+      win_shell: |
+        $CEIPPath = "HKLM:\Software\Microsoft\Microsoft SQL Server\{{ sql_instance_id }}\CPE"
+        Set-ItemProperty -Path $CEIPPath -Name "CustomerFeedback" -Value 0
+      when: customer_feedback.stdout == "1"
 
     - name: Ensure Error Reporting is Disabled
-      win_regedit:
-        path: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\{{ sql_instance_id }}\\CPE"
-        name: "EnableErrorReporting"
-        data: "0"
-      when: enable_error_reporting.rc == 0 and enable_error_reporting.changed
+      win_shell: |
+        $CPEPath = "HKLM:\Software\Microsoft\Microsoft SQL Server\{{ sql_instance_id }}\CPE"
+        Set-ItemProperty -Path $CPEPath -Name "EnableErrorReporting" -Value 0
+      when: enable_error_reporting.stdout == "1"
 
     - name: Ensure CEIP is Disabled (Version 130)
-      win_regedit:
-        path: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\130"
-        name: "CustomerFeedback"
-        data: "0"
-      when: customer_feedback_130.rc == 0 and customer_feedback_130.changed
+      win_shell: |
+        $CEIPPath_130 = "HKLM:\Software\Microsoft\Microsoft SQL Server\130"
+        Set-ItemProperty -Path $CEIPPath_130 -Name "CustomerFeedback" -Value 0
+      when: customer_feedback_130.stdout == "1"
 
     - name: Ensure Error Reporting is Disabled (Version 130)
-      win_regedit:
-        path: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\130"
-        name: "EnableErrorReporting"
-        data: "0"
-      when: enable_error_reporting_130.rc == 0 and enable_error_reporting_130.changed
+      win_shell: |
+        $CPEPath_130 = "HKLM:\Software\Microsoft\Microsoft SQL Server\130"
+        Set-ItemProperty -Path $CPEPath_130 -Name "EnableErrorReporting" -Value 0
+      when: enable_error_reporting_130.stdout == "1"
