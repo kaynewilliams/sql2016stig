@@ -2,8 +2,6 @@
 - name: Combined SQL Server Configuration
   hosts: all
   gather_facts: true
-  become: yes
-  become_method: runas
 
   vars:
     permission: "VIEW ANY DATABASE"  # Real Permissions
@@ -13,8 +11,6 @@
     - name: Install pymssql Python module
       win_shell: |
         Install-Module -Name pymssql -Force -Scope Global
-      become: yes
-      become_user: administrator
       environment:
         PYTHONIOENCODING: UTF-8
 
@@ -41,8 +37,6 @@
           END;
         "@
         Invoke-Sqlcmd -Query $triggerCode -ServerInstance 'localhost' -Database 'master'
-      become: yes
-      become_user: administrator
       environment:
         PYTHONIOENCODING: UTF-8
 
