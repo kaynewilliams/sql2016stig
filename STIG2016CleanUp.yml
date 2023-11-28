@@ -6,7 +6,7 @@
 
   vars:
     permission: "VIEW ANY DATABASE"  # Real Permissions
-    sql_instance_id: "MSSQL13.SQLEXPRESS" # Specify the SQL Server instance name here
+    sql_instance_id: "WIN-8FEC7TK3JN0\\SQLEXPRESS" # Specify the SQL Server instance name here
 
   tasks:
     - name: Install pymssql Python module
