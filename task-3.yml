@@ -1,0 +1,41 @@
+---
+- name: Configure SQL Server Concurrent Session Limit
+  hosts: all
+  gather_facts: true
+  become: yes
+  tasks:
+    - name: Install pymssql Python module
+      win_shell: |
+        Install-Module -Name pymssql -Force -Scope Global
+      become: yes
+      become_user: administrator
+      environment:
+        PYTHONIOENCODING: UTF-8
+
+    - name: Configure SQL Server Concurrent Session Limit
+      win_shell: |
+        $triggerCode = @"
+          CREATE TRIGGER SQL_STIG_Connection_Limit 
+          ON ALL SERVER WITH EXECUTE AS 'renamed_sa' 
+          FOR LOGON 
+          AS 
+          BEGIN 
+            IF (SELECT COUNT(1) FROM sys.dm_exec_sessions WHERE is_user_process = 1 AND original_login_name = ORIGINAL_LOGIN()) > 
+              (CASE ORIGINAL_LOGIN()
+                WHEN 'renamed_sa' THEN 40
+                WHEN 'domain/ima.dba' THEN 150
+                WHEN 'application1_login' THEN 6
+                WHEN 'application2_login' THEN 20
+                ELSE 1
+              END)
+            BEGIN 
+                PRINT 'The login [' + ORIGINAL_LOGIN() + '] has exceeded its concurrent session limit.' 
+                ROLLBACK; 
+            END
+          END;
+        "@
+        Invoke-Sqlcmd -Query $triggerCode -ServerInstance 'localhost' -Database 'master'
+      become: yes
+      become_user: administrator
+      environment:
+        PYTHONIOENCODING: UTF-8
