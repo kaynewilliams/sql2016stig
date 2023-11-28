@@ -30,7 +30,7 @@
       win_shell: |
         $triggerCode = @"
           CREATE TRIGGER SQL_STIG_Connection_Limit 
-          ON ALL SERVER WITH EXECUTE AS 'renamed_sa' 
+          ON ALL SERVER WITH EXECUTE AS 'WinLabAAP' 
           FOR LOGON 
           AS 
           BEGIN 
@@ -45,7 +45,7 @@
             END
           END;
         "@
-        Invoke-Sqlcmd -Query $triggerCode -ServerInstance 'MSSQL13.SQLEXPRESS' -Database 'master'
+        Invoke-Sqlcmd -Query $triggerCode -ServerInstance 'localhost' -Database 'master'
       environment:
         PYTHONIOENCODING: UTF-8
       ignore_errors: true
