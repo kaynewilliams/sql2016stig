@@ -3,6 +3,8 @@
   hosts: all
   gather_facts: true
   become: yes
+  become_method: runas
+  become_user: WinLabAAP #is admin
 
   vars:
     permission: "VIEW ANY DATABASE"  # Real Permissions
@@ -11,9 +13,9 @@
   tasks:
     - name: Install pymssql Python module
       win_shell: |
-        Install-Module -Name pymssql -Force
+        Install-Module -Name pymssql -Force -Scope Global
       become: yes
-      become_user: Administrator
+      become_user: WinLabAAP
       environment:
         PYTHONIOENCODING: UTF-8
 
@@ -41,7 +43,7 @@
         "@
         Invoke-Sqlcmd -Query $triggerCode -ServerInstance 'localhost' -Database 'master'
       become: yes
-      become_user: Administrator
+      become_user: WinLabAAP
       environment:
         PYTHONIOENCODING: UTF-8
 
