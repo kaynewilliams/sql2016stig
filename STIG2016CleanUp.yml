@@ -45,7 +45,7 @@
             END
           END;
         "@
-        Invoke-Sqlcmd -Query $triggerCode -ServerInstance 'localhost' -Database 'master'
+        Invoke-Sqlcmd -Query $triggerCode -ServerInstance 'MSSQL13.SQLEXPRESS' -Database 'master'
       environment:
         PYTHONIOENCODING: UTF-8
       ignore_errors: true
