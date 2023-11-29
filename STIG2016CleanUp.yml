@@ -1,3 +1,4 @@
+---
 - name: Combined SQL Server Cleanup Configuration
   hosts: all
   gather_facts: true
