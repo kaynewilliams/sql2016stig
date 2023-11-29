@@ -26,61 +26,6 @@
       environment:
         PYTHONIOENCODING: UTF-8
 
-    - name: Execute SQL queries to check permissions
-      win_shell: |
-        $query1 = "SELECT SERVERPROPERTY('IsClustered') AS [IsClustered], SERVERPROPERTY('IsHadrEnabled') AS [IsHadrEnabled]"
-        $query2 = "EXECUTE AS LOGIN = 'NT AUTHORITY\SYSTEM'; SELECT * FROM fn_my_permissions(NULL, 'server'); REVERT"
-
-        $result1 = Invoke-Sqlcmd -ServerInstance "MSSQL13.SQLEXPRESS" -Database "master" -Query $query1
-        $result2 = Invoke-Sqlcmd -ServerInstance "MSSQL13.SQLEXPRESS" -Database "master" -Query $query2
-
-        Write-Output $result1
-        Write-Output $result2
-      become: true
-      register: sql_query_result
-      ignore_errors: true
-
-    - name: Evaluate SQL query results and fix permissions if needed
-      win_shell: |
-        $isClustered = $using:sql_query_result.stdout_lines[0].IsClustered
-        $isHadrEnabled = $using:sql_query_result.stdout_lines[0].IsHadrEnabled
-        $permissions = $using:sql_query_result.stdout_lines[1..$using:sql_query_result.stdout_lines.length]
-
-        if ($isClustered -eq 1 -and $isHadrEnabled -eq 0) {
-          if ($permissions -contains "CONNECT SQL" -and $permissions -contains "VIEW SERVER STATE" -and $permissions -contains "VIEW ANY DATABASE") {
-            Write-Output "No action required. Permissions are within allowed limits."
-          } else {
-            Write-Output "Fixing permissions for NT AUTHORITY\SYSTEM."
-            # Remove unwanted permissions
-            # Use the appropriate permission that needs to be revoked
-            Invoke-Sqlcmd -ServerInstance "MSSQL13.SQLEXPRESS" -Database "master" -Query "USE Master; REVOKE SHUTDOWN TO [NT AUTHORITY\SYSTEM];"
-          }
-        }
-
-        if ($isHadrEnabled -eq 1) {
-          if ($permissions -contains "CONNECT SQL" -and $permissions -contains "CREATE AVAILABILITY GROUP" -and $permissions -contains "ALTER ANY AVAILABILITY GROUP" -and $permissions -contains "VIEW SERVER STATE" -and $permissions -contains "VIEW ANY DATABASE") {
-            Write-Output "No action required. Permissions are within allowed limits."
-          } else {
-            Write-Output "Fixing permissions for NT AUTHORITY\SYSTEM."
-            # Remove unwanted permissions
-            # Use the appropriate permission that needs to be revoked
-            Invoke-Sqlcmd -ServerInstance "MSSQL13.SQLEXPRESS" -Database "master" -Query "USE Master; REVOKE SHUTDOWN TO [NT AUTHORITY\SYSTEM];"
-          }
-        }
-
-        if ($isClustered -eq 0 -and $isHadrEnabled -eq 0) {
-          if ($permissions -contains "CONNECT SQL" -and $permissions -contains "VIEW ANY DATABASE") {
-            Write-Output "No action required. Permissions are within allowed limits."
-          } else {
-            Write-Output "Fixing permissions for NT AUTHORITY\SYSTEM."
-            # Remove unwanted permissions
-            # Use the appropriate permission that needs to be revoked
-            Invoke-Sqlcmd -ServerInstance "MSSQL13.SQLEXPRESS" -Database "master" -Query "USE Master; REVOKE SHUTDOWN TO [NT AUTHORITY\SYSTEM];"
-          }
-        }
-      become: true
-      ignore_errors: true
-
     - name: Check CEIP Participation
       win_shell: |
         $CEIPPath = "HKLM:\Software\Microsoft\Microsoft SQL Server\{{ sql_instance_id }}\CPE"
@@ -136,3 +81,29 @@
         Set-ItemProperty -Path $CPEPath_130 -Name "EnableErrorReporting" -Value 0
       when: enable_error_reporting_130.stdout == "1"
       ignore_errors: true
+
+    - name: Navigate to audit folder location
+      win_shell: |
+        cd C:\audits2
+      become: true
+      ignore_errors: true
+
+    - name: Set Audit File Permissions
+      win_shell: |
+        $auditFilePath = "C:\audits2"
+        $administrator = "BUILTIN\Administrators"
+        $users = "BUILTIN\Users"
+        $auditAdministrator = "Audit Administrator"
+        $auditorsGroup = "Auditors"
+        $sqlServerServiceSID = "NT SERVICE\MSSQL$SQLEXPRESS"
+        $sqlAgentServiceSID = "NT SERVICE\SQLAgent$SQLEXPRESS"
+
+        # Remove existing permissions
+        icacls $auditFilePath /inheritance:r
+        icacls $auditFilePath /remove:g $administrator $users $auditAdministrator $auditorsGroup $sqlServerServiceSID $sqlAgentServiceSID
+
+        # Set new permissions
+        icacls $auditFilePath /grant $administrator:R /grant $users:N /grant $auditAdministrator:F /grant $auditorsGroup:R /grant $sqlServerServiceSID:F /grant $sqlAgentServiceSID:RXW
+      become: true
+      ignore_errors: true
+
