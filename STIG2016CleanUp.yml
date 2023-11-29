@@ -66,79 +66,77 @@
       become: true
       ignore_errors: true
 
-    - name: Configure Customer Feedback and Error Reporting in SQL Server
-      tasks:
-        - name: Check Registry Values for CEIP
-          win_regedit:
-            key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\{{ sql_instance_id }}\\CPE"
-            name: "CustomerFeedback"
-          register: customer_feedback_reg
-          become: true
-          ignore_errors: true
+    - name: Check Registry Values for CEIP
+      win_regedit:
+        key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\{{ sql_instance_id }}\\CPE"
+        name: "CustomerFeedback"
+      register: customer_feedback_reg
+      become: true
+      ignore_errors: true
 
-        - name: Check Registry Values for CEIP
-          win_regedit:
-            key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\{{ sql_instance_id }}\\CPE"
-            name: "EnableErrorReporting"
-          register: enable_error_reporting_reg
-          become: true
-          ignore_errors: true
+    - name: Check Registry Values for CEIP
+      win_regedit:
+        key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\{{ sql_instance_id }}\\CPE"
+        name: "EnableErrorReporting"
+      register: enable_error_reporting_reg
+      become: true
+      ignore_errors: true
 
-        - name: Check Registry Values for CEIP
-          win_regedit:
-            key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\130"
-            name: "CustomerFeedback"
-          register: customer_feedback_reg_130
-          become: true
-          ignore_errors: true
+    - name: Check Registry Values for CEIP
+      win_regedit:
+        key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\130"
+        name: "CustomerFeedback"
+      register: customer_feedback_reg_130
+      become: true
+      ignore_errors: true
 
-        - name: Check Registry Values for CEIP
-          win_regedit:
-            key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\130"
-            name: "EnableErrorReporting"
-          register: enable_error_reporting_reg_130
-          become: true
-          ignore_errors: true
+    - name: Check Registry Values for CEIP
+      win_regedit:
+        key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\130"
+        name: "EnableErrorReporting"
+      register: enable_error_reporting_reg_130
+      become: true
+      ignore_errors: true
 
-        - name: Ensure CEIP is Disabled
-          fail:
-            msg: "CEIP participation is not authorized, but one or more registry values are set to 1."
-          when: (customer_feedback_reg.stdout|int == 1 or enable_error_reporting_reg.stdout|int == 1 or
-                 customer_feedback_reg_130.stdout|int == 1 or enable_error_reporting_reg_130.stdout|int == 1) and not is_classified_system
-          ignore_errors: true
+    - name: Ensure CEIP is Disabled
+      fail:
+        msg: "CEIP participation is not authorized, but one or more registry values are set to 1."
+      when: (customer_feedback_reg.stdout|int == 1 or enable_error_reporting_reg.stdout|int == 1 or
+              customer_feedback_reg_130.stdout|int == 1 or enable_error_reporting_reg_130.stdout|int == 1) and not is_classified_system
+      ignore_errors: true
 
-        - name: Set Registry Values for CEIP
-          win_regedit:
-            key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\{{ sql_instance_id }}\\CPE"
-            name: "CustomerFeedback"
-            data: 0
-            type: dword
-          become: true
-          ignore_errors: true
+    - name: Set Registry Values for CEIP
+      win_regedit:
+        key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\{{ sql_instance_id }}\\CPE"
+        name: "CustomerFeedback"
+        data: 0
+        type: dword
+      become: true
+      ignore_errors: true
 
-        - name: Set Registry Values for CEIP
-          win_regedit:
-            key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\{{ sql_instance_id }}\\CPE"
-            name: "EnableErrorReporting"
-            data: 0
-            type: dword
-          become: true
-          ignore_errors: true
+    - name: Set Registry Values for CEIP
+      win_regedit:
+        key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\{{ sql_instance_id }}\\CPE"
+        name: "EnableErrorReporting"
+        data: 0
+        type: dword
+      become: true
+      ignore_errors: true
 
-        - name: Set Registry Values for CEIP
-          win_regedit:
-            key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\130"
-            name: "CustomerFeedback"
-            data: 0
-            type: dword
-          become: true
-          ignore_errors: true
+    - name: Set Registry Values for CEIP
+      win_regedit:
+        key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\130"
+        name: "CustomerFeedback"
+        data: 0
+        type: dword
+      become: true
+      ignore_errors: true
 
-        - name: Set Registry Values for CEIP
-          win_regedit:
-            key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\130"
-            name: "EnableErrorReporting"
-            data: 0
-            type: dword
-          become: true
-          ignore_errors: true
+    - name: Set Registry Values for CEIP
+      win_regedit:
+        key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\130"
+        name: "EnableErrorReporting"
+        data: 0
+        type: dword
+      become: true
+      ignore_errors: true
