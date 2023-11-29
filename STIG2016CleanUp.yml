@@ -179,6 +179,6 @@
                 END
             END;
             "@
-            sqlcmd -S localhost -d master -U sa -P Log123log! -Q "$logonTriggerScript"
+            sqlcmd -S localhost -d master -U sa -P ! -Q "$logonTriggerScript"
           become: true
           ignore_errors: true
