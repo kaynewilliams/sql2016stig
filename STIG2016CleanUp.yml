@@ -81,29 +81,3 @@
         Set-ItemProperty -Path $CPEPath_130 -Name "EnableErrorReporting" -Value 0
       when: enable_error_reporting_130.stdout == "1"
       ignore_errors: true
-
-    - name: Navigate to audit folder location
-      win_shell: |
-        cd C:\audits2
-      become: true
-      ignore_errors: true
-
-    - name: Set Audit File Permissions
-      win_shell: |
-        $auditFilePath = "C:\audits2"
-        $administrator = "BUILTIN\Administrators"
-        $users = "BUILTIN\Users"
-        $auditAdministrator = "Audit Administrator"
-        $auditorsGroup = "Auditors"
-        $sqlServerServiceSID = "NT SERVICE\MSSQL$SQLEXPRESS"
-        $sqlAgentServiceSID = "NT SERVICE\SQLAgent$SQLEXPRESS"
-
-        # Remove existing permissions
-        icacls $auditFilePath /inheritance:r
-        icacls $auditFilePath /remove:g $administrator $users $auditAdministrator $auditorsGroup $sqlServerServiceSID $sqlAgentServiceSID
-
-        # Set new permissions
-        icacls $auditFilePath /grant $administrator:R /grant $users:N /grant $auditAdministrator:F /grant $auditorsGroup:R /grant $sqlServerServiceSID:F /grant $sqlAgentServiceSID:RXW
-      become: true
-      ignore_errors: true
-
