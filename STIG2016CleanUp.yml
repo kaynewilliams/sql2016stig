@@ -1,5 +1,4 @@
----
-- name: Combined SQL Server Configuration
+- name: Combined SQL Server Cleanup Configuration
   hosts: all
   gather_facts: true
   become: yes
@@ -11,89 +10,174 @@
     sql_instance_id: "MSSQL13.SQLEXPRESS" # Specify the SQL Server instance name here
 
   tasks:
-
-    - name: Install NuGet provider
+    - name: Check and Fix Permissions for NT AUTHORITY\SYSTEM
       win_shell: |
-        Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
-      become: yes
-      become_user: WinLabAAP
+        $query1 = "SELECT SERVERPROPERTY('IsClustered') AS [IsClustered], SERVERPROPERTY('IsHadrEnabled') AS [IsHadrEnabled]"
+        $query2 = "EXECUTE AS LOGIN = 'NT AUTHORITY\SYSTEM'; SELECT * FROM fn_my_permissions(NULL, 'server'); REVERT"
 
-    - name: Install pymssql Python module
-      win_shell: |
-        Install-Module -Name pymssql -Force
-      become: yes
-      become_user: WinLabAAP
-      environment:
-        PYTHONIOENCODING: UTF-8
+        $result1 = Invoke-Sqlcmd -ServerInstance "MSSQL13.SQLEXPRESS" -Database "master" -Query $query1
+        $result2 = Invoke-Sqlcmd -ServerInstance "MSSQL13.SQLEXPRESS" -Database "master" -Query $query2
 
-    - name: Configure SQL Server Concurrent Session Limit
-      win_shell: |
-        $triggerCode = @"
-          CREATE TRIGGER SQL_STIG_Connection_Limit 
-          ON ALL SERVER WITH EXECUTE AS 'WinLabAAP' 
-          FOR LOGON 
-          AS 
-          BEGIN 
-            IF (SELECT COUNT(1) FROM sys.dm_exec_sessions WHERE is_user_process = 1 AND original_login_name = ORIGINAL_LOGIN()) > 
-              (CASE ORIGINAL_LOGIN()
-                WHEN 'WinLabAAP' THEN 40
-                ELSE 1
-              END)
-            BEGIN 
-                PRINT 'The login [' + ORIGINAL_LOGIN() + '] has exceeded its concurrent session limit.' 
-                ROLLBACK; 
-            END
-          END;
-        "@
-        Invoke-Sqlcmd -Query $triggerCode -ServerInstance 'MSSQL13.SQLEXPRESS' -Database 'master'
-      environment:
-        PYTHONIOENCODING: UTF-8
+        Write-Output $result1
+        Write-Output $result2
+      become: true
+      register: sql_query_result
       ignore_errors: true
 
-    - name: Check CEIP Participation
+    - name: Evaluate SQL query results and fix permissions if needed
       win_shell: |
-        $CEIPPath = "HKLM:\Software\Microsoft\Microsoft SQL Server\{{ sql_instance_id }}\CPE"
-        Get-ItemProperty -Path $CEIPPath -Name "CustomerFeedback" | Select-Object -ExpandProperty "CustomerFeedback"
-      register: customer_feedback
+        $isClustered = $using:sql_query_result.stdout_lines[0].IsClustered
+        $isHadrEnabled = $using:sql_query_result.stdout_lines[0].IsHadrEnabled
+        $permissions = $using:sql_query_result.stdout_lines[1..$using:sql_query_result.stdout_lines.length]
 
-    - name: Check Enable Error Reporting
-      win_shell: |
-        $CPEPath = "HKLM:\Software\Microsoft\Microsoft SQL Server\{{ sql_instance_id }}\CPE"
-        Get-ItemProperty -Path $CPEPath -Name "EnableErrorReporting" | Select-Object -ExpandProperty "EnableErrorReporting"
-      register: enable_error_reporting
+        if ($isClustered -eq 1 -and $isHadrEnabled -eq 0) {
+          if ($permissions -contains "CONNECT SQL" -and $permissions -contains "VIEW SERVER STATE" -and $permissions -contains "VIEW ANY DATABASE") {
+            Write-Output "No action required. Permissions are within allowed limits."
+          } else {
+            Write-Output "Fixing permissions for NT AUTHORITY\SYSTEM."
+            # Remove unwanted permissions
+            # Use the appropriate permission that needs to be revoked
+            Invoke-Sqlcmd -ServerInstance "MSSQL13.SQLEXPRESS" -Database "master" -Query "USE Master; REVOKE SHUTDOWN TO [NT AUTHORITY\SYSTEM];"
+          }
+        }
 
-    - name: Check CEIP Participation (Version 130)
-      win_shell: |
-        $CEIPPath_130 = "HKLM:\Software\Microsoft\Microsoft SQL Server\130"
-        Get-ItemProperty -Path $CEIPPath_130 -Name "CustomerFeedback" | Select-Object -ExpandProperty "CustomerFeedback"
-      register: customer_feedback_130
+        if ($isHadrEnabled -eq 1) {
+          if ($permissions -contains "CONNECT SQL" -and $permissions -contains "CREATE AVAILABILITY GROUP" -and $permissions -contains "ALTER ANY AVAILABILITY GROUP" -and $permissions -contains "VIEW SERVER STATE" -and $permissions -contains "VIEW ANY DATABASE") {
+            Write-Output "No action required. Permissions are within allowed limits."
+          } else {
+            Write-Output "Fixing permissions for NT AUTHORITY\SYSTEM."
+            # Remove unwanted permissions
+            # Use the appropriate permission that needs to be revoked
+            Invoke-Sqlcmd -ServerInstance "MSSQL13.SQLEXPRESS" -Database "master" -Query "USE Master; REVOKE SHUTDOWN TO [NT AUTHORITY\SYSTEM];"
+          }
+        }
 
-    - name: Check Enable Error Reporting (Version 130)
-      win_shell: |
-        $CPEPath_130 = "HKLM:\Software\Microsoft\Microsoft SQL Server\130"
-        Get-ItemProperty -Path $CPEPath_130 -Name "EnableErrorReporting" | Select-Object -ExpandProperty "EnableErrorReporting"
-      register: enable_error_reporting_130
+        if ($isClustered -eq 0 -and $isHadrEnabled -eq 0) {
+          if ($permissions -contains "CONNECT SQL" -and $permissions -contains "VIEW ANY DATABASE") {
+            Write-Output "No action required. Permissions are within allowed limits."
+          } else {
+            Write-Output "Fixing permissions for NT AUTHORITY\SYSTEM."
+            # Remove unwanted permissions
+            # Use the appropriate permission that needs to be revoked
+            Invoke-Sqlcmd -ServerInstance "<YourSQLServerInstance>" -Database "master" -Query "USE Master; REVOKE SHUTDOWN TO [NT AUTHORITY\SYSTEM];"
+          }
+        }
+      become: true
+      ignore_errors: true
 
-    - name: Ensure CEIP is Disabled
-      win_shell: |
-        $CEIPPath = "HKLM:\Software\Microsoft\Microsoft SQL Server\{{ sql_instance_id }}\CPE"
-        Set-ItemProperty -Path $CEIPPath -Name "CustomerFeedback" -Value 0
-      when: customer_feedback.stdout == "1"
+    - name: Configure Customer Feedback and Error Reporting in SQL Server
+      tasks:
+        - name: Check Registry Values for CEIP
+          win_regedit:
+            key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\{{ instance_id }}\\CPE"
+            name: "CustomerFeedback"
+          register: customer_feedback_reg
+          become: true
+          ignore_errors: true
 
-    - name: Ensure Error Reporting is Disabled
-      win_shell: |
-        $CPEPath = "HKLM:\Software\Microsoft\Microsoft SQL Server\{{ sql_instance_id }}\CPE"
-        Set-ItemProperty -Path $CPEPath -Name "EnableErrorReporting" -Value 0
-      when: enable_error_reporting.stdout == "1"
+        - name: Check Registry Values for CEIP
+          win_regedit:
+            key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\{{ instance_id }}\\CPE"
+            name: "EnableErrorReporting"
+          register: enable_error_reporting_reg
+          become: true
+          ignore_errors: true
 
-    - name: Ensure CEIP is Disabled (Version 130)
-      win_shell: |
-        $CEIPPath_130 = "HKLM:\Software\Microsoft\Microsoft SQL Server\130"
-        Set-ItemProperty -Path $CEIPPath_130 -Name "CustomerFeedback" -Value 0
-      when: customer_feedback_130.stdout == "1"
+        - name: Check Registry Values for CEIP
+          win_regedit:
+            key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\130"
+            name: "CustomerFeedback"
+          register: customer_feedback_reg_130
+          become: true
+          ignore_errors: true
 
-    - name: Ensure Error Reporting is Disabled (Version 130)
-      win_shell: |
-        $CPEPath_130 = "HKLM:\Software\Microsoft\Microsoft SQL Server\130"
-        Set-ItemProperty -Path $CPEPath_130 -Name "EnableErrorReporting" -Value 0
-      when: enable_error_reporting_130.stdout == "1"
+        - name: Check Registry Values for CEIP
+          win_regedit:
+            key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\130"
+            name: "EnableErrorReporting"
+          register: enable_error_reporting_reg_130
+          become: true
+          ignore_errors: true
+
+        - name: Ensure CEIP is Disabled
+          fail:
+            msg: "CEIP participation is not authorized, but one or more registry values are set to 1."
+          when: (customer_feedback_reg.stdout|int == 1 or enable_error_reporting_reg.stdout|int == 1 or
+                 customer_feedback_reg_130.stdout|int == 1 or enable_error_reporting_reg_130.stdout|int == 1) and not is_classified_system
+          ignore_errors: true
+
+        - name: Set Registry Values for CEIP
+          win_regedit:
+            key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\{{ instance_id }}\\CPE"
+            name: "CustomerFeedback"
+            data: 0
+            type: dword
+          become: true
+          ignore_errors: true
+
+        - name: Set Registry Values for CEIP
+          win_regedit:
+            key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\{{ instance_id }}\\CPE"
+            name: "EnableErrorReporting"
+            data: 0
+            type: dword
+          become: true
+          ignore_errors: true
+
+        - name: Set Registry Values for CEIP
+          win_regedit:
+            key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\130"
+            name: "CustomerFeedback"
+            data: 0
+            type: dword
+          become: true
+          ignore_errors: true
+
+        - name: Set Registry Values for CEIP
+          win_regedit:
+            key: "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Microsoft SQL Server\\130"
+            name: "EnableErrorReporting"
+            data: 0
+            type: dword
+          become: true
+          ignore_errors: true
+
+    - name: Configure Concurrent Session Limits in SQL Server
+      tasks:
+        - name: Check if logon trigger exists
+          win_shell: 'sqlcmd -S localhost -Q "SELECT name FROM master.sys.server_triggers;"'
+          register: trigger_check
+          become: true
+          ignore_errors: true
+
+        - name: Ensure logon trigger exists
+          fail:
+            msg: "No logon trigger found. Please create a logon trigger as per the provided example script."
+          when: "'No rows affected.' in trigger_check.stdout"
+          ignore_errors: true
+
+        - name: Customize and deploy logon trigger
+          win_shell: |
+            $logonTriggerScript = @"
+            CREATE TRIGGER SQL_STIG_Connection_Limit 
+            ON ALL SERVER WITH EXECUTE AS 'renamed_sa'
+            FOR LOGON 
+            AS 
+            BEGIN 
+                IF (SELECT COUNT(1) FROM sys.dm_exec_sessions WHERE is_user_process = 1 AND original_login_name = ORIGINAL_LOGIN()) >
+                    (CASE ORIGINAL_LOGIN()
+                        WHEN 'renamed_sa' THEN 40
+                        WHEN 'domain/ima.dba' THEN 150
+                        WHEN 'application1_login' THEN 6
+                        WHEN 'application2_login' THEN 20
+                        ELSE 1
+                    END)
+                BEGIN 
+                    PRINT 'The login [' + ORIGINAL_LOGIN() + '] has exceeded its concurrent session limit.' 
+                    ROLLBACK; 
+                END
+            END;
+            "@
+            sqlcmd -S localhost -d master -U sa -P Log123log! -Q "$logonTriggerScript"
+          become: true
+          ignore_errors: true
