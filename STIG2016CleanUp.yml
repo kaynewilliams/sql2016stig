@@ -26,10 +26,6 @@
       environment:
         PYTHONIOENCODING: UTF-8
 
-- name: Check and Fix Permissions for NT AUTHORITY\SYSTEM
-  hosts: windows_server
-  gather_facts: false
-  tasks:
     - name: Execute SQL queries to check permissions
       win_shell: |
         $query1 = "SELECT SERVERPROPERTY('IsClustered') AS [IsClustered], SERVERPROPERTY('IsHadrEnabled') AS [IsHadrEnabled]"
