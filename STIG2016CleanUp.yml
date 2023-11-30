@@ -1,117 +1,91 @@
 ---
-- name: Combined SQL Server Cleanup Configuration
+- name: Combined SQL Server Configuration
   hosts: all
   gather_facts: true
   become: yes
   become_method: runas
+  become_user: WinLabAAP #is admin
+
   vars:
-    permission: VIEW ANY DATABASE
-    sql_instance_id: MSSQL13.SQLEXPRESS
+    permission: "VIEW ANY DATABASE"  # Real Permissions
+    sql_instance_id: "MSSQL13.SQLEXPRESS" # Specify the SQL Server instance name here
+
   tasks:
-    - name: Check and Fix Permissions for NT AUTHORITY\SYSTEM
-      win_shell: >
-        $sql_query = "SELECT SERVERPROPERTY('IsClustered') AS [IsClustered],
-        SERVERPROPERTY('IsHadrEnabled') AS [IsHadrEnabled]"
 
-        $result = Invoke-Sqlcmd -ServerInstance "{{ sql_instance_id }}" -Database "master" -Query $sql_query
+    - name: Install NuGet provider
+      win_shell: |
+        Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
+      become: yes
+      become_user: WinLabAAP
 
-        $isClustered = $result | ForEach-Object {$_.IsClustered} $isHadrEnabled = $result | ForEach-Object {$_.IsHadrEnabled} $permissions = $result | ForEach-Object {$_.Split('\n')[1..]}
+    - name: Install pymssql Python module
+      win_shell: |
+        Install-Module -Name pymssql -Force
+      become: yes
+      become_user: WinLabAAP
+      environment:
+        PYTHONIOENCODING: UTF-8
 
-        if ($isClustered -eq 1 -and $isHadrEnabled -eq 0) {
-          if ($permissions -contains "CONNECT SQL" -and $permissions -contains "VIEW SERVER STATE" -and $permissions -contains "VIEW ANY DATABASE") {
-            Write-Output "No action required. Permissions are within allowed limits."
-          } else {
-            Write-Output "Fixing permissions for NT AUTHORITY\SYSTEM."
-            # Remove unwanted permissions
-            # Use the appropriate permission that needs to be revoked
-            Invoke-Sqlcmd -ServerInstance "{{ sql_instance_id }}" -Database "master" -Query "USE Master; REVOKE SHUTDOWN TO [NT AUTHORITY\SYSTEM];"
-          }
-        }
-
-        if ($isHadrEnabled -eq 1) {
-          if ($permissions -contains "CONNECT SQL" -and $permissions -contains "CREATE AVAILABILITY GROUP" -and $permissions -contains "ALTER ANY AVAILABILITY GROUP" -and $permissions -contains "VIEW SERVER STATE" -and $permissions -contains "VIEW ANY DATABASE") {
-            Write-Output "No action required. Permissions are within allowed limits."
-          } else {
-            Write-Output "Fixing permissions for NT AUTHORITY\SYSTEM."
-            # Remove unwanted permissions
-            # Use the appropriate permission that needs to be revoked
-            Invoke-Sqlcmd -ServerInstance "{{ sql_instance_id }}" -Database "master" -Query "USE Master; REVOKE SHUTDOWN TO [NT AUTHORITY\SYSTEM];"
-          }
-        }
-
-        if ($isClustered -eq 0 -and $isHadrEnabled -eq 0) {
-          if ($permissions -contains "CONNECT SQL" -and $permissions -contains "VIEW ANY DATABASE") {
-            Write-Output "No action required. Permissions are within allowed limits."
-          } else {
-            Write-Output "Fixing permissions for NT AUTHORITY\SYSTEM."
-            # Remove unwanted permissions
-            # Use the appropriate permission that needs to be revoked
-            Invoke-Sqlcmd -ServerInstance "{{ sql_instance_id }}" -Database "master" -Query "USE Master; REVOKE SHUTDOWN TO [NT AUTHORITY\SYSTEM];"
-          }
-        }
+    - name: Check CEIP Participation
+      win_regedit:
+        path: "HKLM:\\Software\\Microsoft\\Microsoft SQL Server\\{{ sql_instance_id }}\\CPE"
+        name: "CustomerFeedback"
+      register: customer_feedback
       ignore_errors: true
-    - name: Check Registry Values for CEIP
+
+    - name: Check Enable Error Reporting
       win_regedit:
-        key: HKEY_LOCAL_MACHINE\Software\Microsoft\Microsoft SQL Server\{{
-          sql_instance_id }}\CPE
-        name: CustomerFeedback
-        register: customer_feedback_reg
-        ignore_errors: true
-    - name: Check Registry Values for CEIP
+        path: "HKLM:\\Software\\Microsoft\\Microsoft SQL Server\\{{ sql_instance_id }}\\CPE"
+        name: "EnableErrorReporting"
+      register: enable_error_reporting
+      ignore_errors: true
+
+    - name: Check CEIP Participation (Version 130)
       win_regedit:
-        key: HKEY_LOCAL_MACHINE\Software\Microsoft\Microsoft SQL Server\{{
-          sql_instance_id }}\CPE
-        name: EnableErrorReporting
-        register: enable_error_reporting_reg
-        ignore_errors: true
-    - name: Check Registry Values for CEIP
+        path: "HKLM:\\Software\\Microsoft\\Microsoft SQL Server\\130"
+        name: "CustomerFeedback"
+      register: customer_feedback_130
+      ignore_errors: true
+
+    - name: Check Enable Error Reporting (Version 130)
       win_regedit:
-        key: HKEY_LOCAL_MACHINE\Software\Microsoft\Microsoft SQL Server\130
-        name: CustomerFeedback
-        register: customer_feedback_reg_130
-        ignore_errors: true
-    - name: Check Registry Values for CEIP
-      win_regedit:
-        key: HKEY_LOCAL_MACHINE\Software\Microsoft\Microsoft SQL Server\130
-        name: EnableErrorReporting
-        register: enable_error_reporting_reg_130
-        ignore_errors: true
+        path: "HKLM:\\Software\\Microsoft\\Microsoft SQL Server\\130"
+        name: "EnableErrorReporting"
+      register: enable_error_reporting_130
+      ignore_errors: true
+
     - name: Ensure CEIP is Disabled
-      fail:
-        msg: CEIP participation is not authorized, but one or more registry values are
-          set to 1.
-      when: (customer_feedback_reg.stdout|int == 1 or
-        enable_error_reporting_reg.stdout|int == 1 or
-        customer_feedback_reg_130.stdout|int == 1 or
-        enable_error_reporting_reg_130.stdout|int == 1)
-      ignore_errors: true
-    - name: Set Registry Values for CEIP
       win_regedit:
-        key: HKEY_LOCAL_MACHINE\Software\Microsoft\Microsoft SQL Server\{{
-          sql_instance_id }}\CPE
-        name: CustomerFeedback
-        data: 0
+        path: "HKLM:\\Software\\Microsoft\\Microsoft SQL Server\\{{ sql_instance_id }}\\CPE"
+        name: "CustomerFeedback"
+        data: "0"
         type: dword
+      when: customer_feedback.stdout == "1"
       ignore_errors: true
-    - name: Set Registry Values for CEIP
+
+    - name: Ensure Error Reporting is Disabled
       win_regedit:
-        key: HKEY_LOCAL_MACHINE\Software\Microsoft\Microsoft SQL Server\{{
-          sql_instance_id }}\CPE
-        name: EnableErrorReporting
-        data: 0
+        path: "HKLM:\\Software\\Microsoft\\Microsoft SQL Server\\{{ sql_instance_id }}\\CPE"
+        name: "EnableErrorReporting"
+        data: "0"
         type: dword
+      when: enable_error_reporting.stdout == "1"
       ignore_errors: true
-    - name: Set Registry Values for CEIP
+
+    - name: Ensure CEIP is Disabled (Version 130)
       win_regedit:
-        key: HKEY_LOCAL_MACHINE\Software\Microsoft\Microsoft SQL Server\130
-        name: CustomerFeedback
-        data: 0
+        path: "HKLM:\\Software\\Microsoft\\Microsoft SQL Server\\130"
+        name: "CustomerFeedback"
+        data: "0"
         type: dword
+      when: customer_feedback_130.stdout == "1"
       ignore_errors: true
-    - name: Set Registry Values for CEIP
+
+    - name: Ensure Error Reporting is Disabled (Version 130)
       win_regedit:
-        key: HKEY_LOCAL_MACHINE\Software\Microsoft\Microsoft SQL Server\130
-        name: EnableErrorReporting
-        data: 0
+        path: "HKLM:\\Software\\Microsoft\\Microsoft SQL Server\\130"
+        name: "EnableErrorReporting"
+        data: "0"
         type: dword
+      when: enable_error_reporting_130.stdout == "1"
       ignore_errors: true
