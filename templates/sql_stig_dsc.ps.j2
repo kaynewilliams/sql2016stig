@@ -1,0 +1,25 @@
+
+configuration SQL2016
+{
+    param
+    (
+        [parameter()]
+        [string]
+        $NodeName = 'localhost'
+    )
+
+    Import-DscResource -ModuleName PowerStig
+
+    Node localhost
+    {
+        SqlServer BaseLine
+        {
+            SqlVersion     = '2016'
+            SqlRole        = 'Instance'
+            ServerInstance = 'WIN-8FEC7TK3JN0'
+            SkipRule    = @('V-213975')
+        }
+    }
+}
+
+SQL2016
