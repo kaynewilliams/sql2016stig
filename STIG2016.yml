@@ -1,0 +1,28 @@
+---
+- name: Combined SQL Server Configuration
+  hosts: all
+  gather_facts: true
+  become: yes
+  become_method: runas
+  become_user: WinLabAAP #is admin
+
+  tasks:
+
+    - name: Install NuGet provider
+      win_shell: |
+        Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
+      become: yes
+      become_user: WinLabAAP
+
+    - name: Install pymssql Python module
+      win_shell: |
+        Install-Module -Name pymssql -Force
+      become: yes
+      become_user: WinLabAAP
+      environment:
+        PYTHONIOENCODING: UTF-8
+
+    - name: Create Audit directory
+      win_file:
+        path: C:\\Audit
+        state: directory
