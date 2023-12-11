@@ -1,5 +1,5 @@
 ---
-- name: Combined SQL Server Configuration
+- name: Ansible & DSC Playbook for SQL STIG
   hosts: all
   gather_facts: true
   become: yes
@@ -7,22 +7,63 @@
   become_user: WinLabAAP #is admin
 
   tasks:
-
     - name: Install NuGet provider
       win_shell: |
         Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
       become: yes
       become_user: WinLabAAP
+      ignore_errors: true
 
-    - name: Install pymssql Python module
+    - name: Install PowerShellGet
       win_shell: |
-        Install-Module -Name pymssql -Force
+        if (-not(Get-Module -ListAvailable -Name PowerShellGet)) {
+            Install-Module -Name PowerShellGet -Force -AllowClobber
+        }
+      args:
+        executable: powershell.exe
       become: yes
       become_user: WinLabAAP
-      environment:
-        PYTHONIOENCODING: UTF-8
+      ignore_errors: true
+
+    - name: Install PowerStig
+      win_shell: |
+        if (-not(Get-Module -ListAvailable -Name PowerSTIG)) {
+            Install-Module -Name PowerSTIG -Force
+        }
+      args:
+        executable: powershell.exe
+      become: yes
+      become_user: WinLabAAP
+      ignore_errors: true
+
+    - name: Install PowerSTIG prerequisites
+      win_shell: |
+        $modules = @("PSDscResources", "AuditPolicyDsc", "SecurityPolicyDsc")
+        foreach ($module in $modules) {
+            if (-not(Get-Module -ListAvailable -Name $module)) {
+                Install-Module -Name $module -Force
+            }
+        }
+      args:
+        executable: powershell.exe
+      become: yes
+      become_user: WinLabAAP
+      ignore_errors: true
 
     - name: Create Audit directory
       win_file:
-        path: C:\\Audit
+        path: C:\\audits
         state: directory
+      become: yes
+      become_user: WinLabAAP
+      ignore_errors: true
+
+    - name: Generate PowerSTIG DSC MOF
+      win_shell: |
+        {{ lookup('template', 'templates/sql_stig_dsc.ps.j2') }} 
+      ignore_errors: true
+
+    - name: Apply generated PowerSTIG MOF
+      win_shell: |
+        Start-DscConfiguration -Path C:\Windows\STIG16 -Force -Wait -Verbose
+      ignore_errors: true
