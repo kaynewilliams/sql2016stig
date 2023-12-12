@@ -74,13 +74,4 @@
       become: yes
       become_user: WinLabAAP
       ignore_errors: true
-
-    - name: Send a notification to Teams Channel
-  uri:
-    ## Use your own URL here
-    url: "https://validatek.webhook.office.com/webhookb2/5688d95a-edaa-4fa8-a7de-6496242c0fdc@c8ebb8f5-6ec3-41bd-99b6-e4aafe702967/IncomingWebhook/ca5b49ae03c0492e8c1a1949ac9c5bb9/d19e7d29-9069-4f3d-9178-90a58c17322e"
-    method: POST
-    body_format: json
-    body:
-      title: "Job Successful"
-      text: "An automated Windows 2019 STIG job has been completed!"
+      
