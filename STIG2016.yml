@@ -46,7 +46,7 @@
         - name: AuditPolicyDsc
           version: 1.4.0.0
         - name: SecurityPolicyDsc
-          version: 3.0.0.0
+          version: 2.10.0.0
         - name: PSDscResources
           version: 2.12.0.0
       become: yes
@@ -70,7 +70,7 @@
 
     - name: Apply generated PowerSTIG MOF
       win_shell: |
-        Start-DscConfiguration -Path C:\Windows\STIG16 -Force -Wait -Verbose
+        Start-DscConfiguration -Path C:\Windows\SQL2016 -Force -Wait -Verbose
       become: yes
       become_user: WinLabAAP
       ignore_errors: true
