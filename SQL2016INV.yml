@@ -1,9 +1,9 @@
 [win]
-192.168.22.135
+*Server IP Here*
 
 [win:vars]
 ansible_connection=winrm
-ansible_user=WinLabAAP
+ansible_user=
 ansible_port=5985
-ansible_password=Log123log!
+ansible_password=
 ansible_winrm_server_cert_validation=ignore
